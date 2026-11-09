@@ -1,0 +1,288 @@
+name: Build
+
+# Builds the latest stable upstream Telegram Desktop release with the
+# patches from patches/ and the branding from branding/, then publishes
+# it as a GitHub release of this repository. The build steps follow
+# upstream's own .github/workflows/linux.yml (same Docker image).
+
+on:
+  schedule:
+    - cron: '23 */3 * * *'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Upstream tdesktop tag, empty = latest stable release'
+        required: false
+        default: ''
+      force:
+        description: 'Rebuild even if this tag is already released here'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build
+  cancel-in-progress: false
+
+env:
+  IMAGE_TAG: tdesktop:centos_env
+
+jobs:
+
+  check:
+    name: Check upstream
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+      build: ${{ steps.check.outputs.build }}
+    steps:
+      - name: Find the tag to build.
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          tag="$INPUT_TAG"
+          if [ -z "$tag" ]; then
+            tag=$(gh api repos/telegramdesktop/tdesktop/releases/latest -q .tag_name)
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [ "$FORCE" != "true" ] \
+            && gh release view "$tag" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "$tag is already released here."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Will build $tag."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  libs:
+    name: Libraries ${{ needs.check.outputs.tag }}
+    needs: check
+    if: needs.check.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - name: Clone upstream.
+        uses: actions/checkout@v7
+        with:
+          repository: telegramdesktop/tdesktop
+          ref: ${{ needs.check.outputs.tag }}
+          path: tdesktop
+
+      - name: Generate Dockerfile.
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          cd tdesktop/Telegram/build/docker/centos_env
+          poetry install
+          DOCKERFILE=$(DEBUG= LTO= poetry run gen_dockerfile)
+          echo "$DOCKERFILE" > Dockerfile
+          rm -rf __pycache__
+
+      - name: Check libraries cache.
+        id: lookup
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ runner.temp }}/.buildx-cache
+            ${{ runner.temp }}/.mount-cache
+          key: ${{ runner.OS }}-libs-${{ hashFiles('tdesktop/Telegram/build/docker/centos_env/**') }}
+          lookup-only: true
+
+      - name: Free up some disk space.
+        if: steps.lookup.outputs.cache-hit != 'true'
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6
+        with:
+          tool-cache: true
+
+      - name: Set up Docker Buildx.
+        if: steps.lookup.outputs.cache-hit != 'true'
+        id: setup-buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Libraries cache.
+        if: steps.lookup.outputs.cache-hit != 'true'
+        uses: actions/cache@v6
+        with:
+          path: |
+            ${{ runner.temp }}/.buildx-cache
+            ${{ runner.temp }}/.mount-cache
+          key: ${{ runner.OS }}-libs-${{ hashFiles('tdesktop/Telegram/build/docker/centos_env/**') }}
+          restore-keys: ${{ runner.OS }}-libs-
+
+      - name: Restore Docker cache mounts.
+        if: steps.lookup.outputs.cache-hit != 'true'
+        uses: reproducible-containers/buildkit-cache-dance@5422eac04292c961a382e0f584ea0f03ad9da723
+        with:
+          builder: ${{ steps.setup-buildx.outputs.name }}
+          cache-dir: ${{ runner.temp }}/.mount-cache
+          dockerfile: tdesktop/Telegram/build/docker/centos_env/Dockerfile
+
+      - name: Libraries.
+        if: steps.lookup.outputs.cache-hit != 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: tdesktop/Telegram/build/docker/centos_env
+          load: false
+          tags: ${{ env.IMAGE_TAG }}
+          cache-from: type=local,src=${{ runner.temp }}/.buildx-cache
+          cache-to: type=local,dest=${{ runner.temp }}/.buildx-cache-new,mode=max
+
+      - name: Move cache.
+        if: steps.lookup.outputs.cache-hit != 'true'
+        run: |
+          rm -rf ${{ runner.temp }}/.buildx-cache
+          mv ${{ runner.temp }}/.buildx-cache{-new,}
+
+  build:
+    name: Build ${{ needs.check.outputs.tag }}
+    needs: [check, libs]
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    env:
+      TAG: ${{ needs.check.outputs.tag }}
+    steps:
+      - name: Clone this repository.
+        uses: actions/checkout@v7
+        with:
+          path: fork
+
+      - name: Clone upstream.
+        uses: actions/checkout@v7
+        with:
+          repository: telegramdesktop/tdesktop
+          ref: ${{ needs.check.outputs.tag }}
+          submodules: recursive
+          path: tdesktop
+
+      - name: Apply patches and branding.
+        run: |
+          cd tdesktop
+          git apply --3way ../fork/patches/*.patch
+          ../fork/branding/apply.sh .
+          git status --short
+
+      - name: First set up.
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          curl -sSL https://github.com/ccache/ccache/releases/download/v4.13.6/ccache-4.13.6-linux-x86_64-glibc.tar.xz \
+          | sudo tar xJ -C /usr/local/bin --strip-components=1 ccache-4.13.6-linux-x86_64-glibc/ccache
+          echo "CCACHE_DIR=$RUNNER_TEMP/.tdesktop-cache" >> $GITHUB_ENV
+          cd tdesktop/Telegram/build/docker/centos_env
+          poetry install
+          DOCKERFILE=$(DEBUG= LTO= poetry run gen_dockerfile)
+          echo "$DOCKERFILE" > Dockerfile
+          rm -rf __pycache__
+
+      - name: Free up some disk space.
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6
+        with:
+          tool-cache: true
+
+      - name: Set up Docker Buildx.
+        uses: docker/setup-buildx-action@v4
+
+      - name: Restore libraries cache.
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ runner.temp }}/.buildx-cache
+            ${{ runner.temp }}/.mount-cache
+          key: ${{ runner.OS }}-libs-${{ hashFiles('tdesktop/Telegram/build/docker/centos_env/**') }}
+          fail-on-cache-miss: true
+
+      - name: Libraries (from cache).
+        uses: docker/build-push-action@v7
+        with:
+          context: tdesktop/Telegram/build/docker/centos_env
+          load: true
+          tags: ${{ env.IMAGE_TAG }}
+          cache-from: type=local,src=${{ runner.temp }}/.buildx-cache
+
+      - name: Restore Telegram Desktop cache.
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.OS }}-tdesktop-release-${{ github.run_id }}
+          restore-keys: ${{ runner.OS }}-tdesktop-release-
+
+      - name: Telegram Desktop build.
+        id: build
+        timeout-minutes: 300
+        run: |
+          mkdir -p "$CCACHE_DIR"
+          ccache -z
+          cd tdesktop
+          docker run --rm \
+          -u $(id -u) \
+          -v $PWD:/usr/src/tdesktop \
+          -v $CCACHE_DIR:/var/cache/ccache \
+          -e CCACHE_SLOPPINESS=pch_defines,time_macros \
+          -e CCACHE_MAXSIZE=2G \
+          $IMAGE_TAG \
+          env -u CCACHE_DISABLE /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
+          -D CMAKE_CONFIGURATION_TYPES=Release \
+          -D CMAKE_C_FLAGS_RELEASE="-O3 -DNDEBUG -fpch-preprocess" \
+          -D CMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -fpch-preprocess" \
+          -D TDESKTOP_API_TEST=ON \
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
+          -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+          test -x out/Release/Telegram
+          ccache --show-stats || true
+
+      - name: Save Telegram Desktop cache.
+        if: always() && steps.build.outcome != 'skipped'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.OS }}-tdesktop-release-${{ github.run_id }}
+
+      - name: Package.
+        run: |
+          version="${TAG#v}"
+          name="unofficial-telegram-desktop-$version-linux-x64"
+          mkdir -p dist/UnofficialTelegram
+          cp tdesktop/out/Release/Telegram dist/UnofficialTelegram/Telegram
+          tar -C dist -cJf "$name.tar.xz" UnofficialTelegram
+          sha256sum "$name.tar.xz" > "$name.tar.xz.sha256"
+          echo "ASSET=$name.tar.xz" >> $GITHUB_ENV
+
+      - name: Release.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Unofficial build of [Telegram Desktop $TAG](https://github.com/telegramdesktop/tdesktop/releases/tag/$TAG) for Linux x64."
+            echo
+            echo "Changes against upstream (see README):"
+            for p in fork/patches/*.patch; do echo "- \`$(basename "$p")\`"; done
+            echo "- unofficial name and logo (\`branding/\`)"
+            echo
+            echo "On the first launch it asks for your own api_id / api_hash from https://my.telegram.org."
+            echo
+            echo "Source: upstream tag \`$TAG\` + patches and branding at $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/tree/$GITHUB_SHA (GPLv3)."
+          } > notes.md
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" "$ASSET.sha256" -R "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes-file notes.md
+          else
+            gh release create "$TAG" "$ASSET" "$ASSET.sha256" -R "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Unofficial Telegram Desktop ${TAG#v}" \
+              --notes-file notes.md
+          fi
+
+      - name: Record the build.
+        # Also keeps the repository active, so the schedule is not disabled.
+        run: |
+          cd fork
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase --quiet
+          echo "$TAG $(date -u +%F)" >> BUILDS.txt
+          git add BUILDS.txt
+          git commit -m "Built $TAG"
+          git push

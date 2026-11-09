@@ -1,0 +1,26 @@
+diff --git a/Telegram/SourceFiles/platform/linux/specific_linux.cpp b/Telegram/SourceFiles/platform/linux/specific_linux.cpp
+index 0e6214ddf..9ed5e3db7 100644
+--- a/Telegram/SourceFiles/platform/linux/specific_linux.cpp
++++ b/Telegram/SourceFiles/platform/linux/specific_linux.cpp
+@@ -469,9 +469,9 @@ void InstallLauncher() {
+ 	static const auto DisabledByEnv = !qEnvironmentVariableIsEmpty(
+ 		"DESKTOPINTEGRATION");
+ 
+-	// don't update desktop file for alpha version or if updater is disabled
++	// don't update desktop file for alpha version or inside a sandbox
++	// Fork: a portable build without the updater installs it as well.
+ 	if (cAlphaVersion()
+-			|| Core::UpdaterDisabled()
+ 			|| KSandbox::isInside()
+ 			|| DisabledByEnv) {
+ 		return;
+@@ -696,7 +696,8 @@ bool SkipTaskbarSupported() {
+ }
+ 
+ QString ExecutablePathForShortcuts() {
+-	if (Core::UpdaterDisabled()) {
++	// Fork: a portable build without the updater needs the full path.
++	if (Core::UpdaterDisabled() && KSandbox::isInside()) {
+ 		const auto &arguments = Core::Launcher::Instance().arguments();
+ 		if (!arguments.isEmpty()) {
+ 			const auto result = QFileInfo(arguments.first()).fileName();
