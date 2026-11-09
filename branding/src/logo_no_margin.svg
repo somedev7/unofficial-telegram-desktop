@@ -1,17 +1,19 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
   <defs>
-    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="12" y1="12" x2="244" y2="244">
-      <stop offset="0" stop-color="#FF9F43"/>
-      <stop offset="1" stop-color="#E63B76"/>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="46" y1="46" x2="210" y2="210">
+      <stop offset="0" stop-color="#3D4250"/>
+      <stop offset="1" stop-color="#111216"/>
     </linearGradient>
+    <clipPath id="plane">
+      <path d="M200.83 84.59 L160.17 189.41 Q158 195 153.07 191.57 L125.14 172.14 Q123.5 171 121.96 172.28 L103.85 187.31 Q100 190.5 98.4 185.76 L85.64 147.9 Q85 146 83.2 145.13 L57.4 132.62 Q52 130 57.68 128.08 L197.32 80.92 Q203 79 200.83 84.59 Z"/>
+    </clipPath>
   </defs>
-  <g id="mark" transform="translate(128 128) scale(1.10345) translate(-128 -128)">
-    <rect x="12" y="12" width="232" height="232" rx="60" fill="url(#bg)"/>
-    <path fill="#FFFFFF" d="M98 62 H158 A42 42 0 0 1 200 104 V128 A42 42 0 0 1 174 166 L182 198 L144 170 H98 A42 42 0 0 1 56 128 V104 A42 42 0 0 1 98 62 Z"/>
-    <path fill="url(#bg)" d="M113 113 V104 A15 15 0 0 1 143 104 V113 H134 V104 A6 6 0 0 0 122 104 V113 Z"/>
-    <rect x="104" y="111" width="48" height="37" rx="8" fill="url(#bg)"/>
-    <circle cx="128" cy="126" r="5.5" fill="#FFFFFF"/>
-    <rect x="125.5" y="126" width="5" height="11" rx="2.5" fill="#FFFFFF"/>
+  <g transform="translate(128 128) scale(1.103448275862069) translate(-128 -128)">
+    <circle cx="128" cy="128" r="116" fill="url(#bg)"/>
+    <g clip-path="url(#plane)">
+      <path fill="#FFFFFF" d="M200.83 84.59 L160.17 189.41 Q158 195 153.07 191.57 L125.14 172.14 Q123.5 171 121.96 172.28 L103.85 187.31 Q100 190.5 98.4 185.76 L85.64 147.9 Q85 146 83.2 145.13 L57.4 132.62 Q52 130 57.68 128.08 L197.32 80.92 Q203 79 200.83 84.59 Z"/>
+      <path fill="#CACDD5" d="M180 94 L108.5 159.5 L100 190.5 L85 146 Z"/>
+      <path fill="#B2B7BF" d="M108.5 159.5 L123.5 171 L100 190.5 Z"/>
+    </g>
   </g>
 </svg>

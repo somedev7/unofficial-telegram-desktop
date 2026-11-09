@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="16px" height="16px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg">
-    <g id="bubble" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-        <path d="M5 1.5 H11 A4 4 0 0 1 15 5.5 V7.5 A4 4 0 0 1 12.8 11.1 L13.5 14.5 L9.5 11.5 H5 A4 4 0 0 1 1 7.5 V5.5 A4 4 0 0 1 5 1.5 Z M6 6.3 V5.2 A2 2 0 0 1 10 5.2 V6.3 H9.1 V5.2 A1.1 1.1 0 0 0 6.9 5.2 V6.3 Z M6.5 6.3 H9.5 A0.8 0.8 0 0 1 10.3 7.1 V8.8 A0.8 0.8 0 0 1 9.5 9.6 H6.5 A0.8 0.8 0 0 1 5.7 8.8 V7.1 A0.8 0.8 0 0 1 6.5 6.3 Z" fill="#FFFFFF"></path>
-    </g>
+    <path fill="#FFFFFF" fill-rule="evenodd" d="M15.28 2.16 L11.25 12.57 Q11.03 13.12 10.54 12.78 L7.77 10.85 Q7.6 10.74 7.45 10.87 L5.65 12.36 Q5.27 12.68 5.11 12.21 L3.84 8.44 Q3.78 8.26 3.6 8.17 L1.04 6.93 Q0.5 6.67 1.06 6.48 L14.94 1.79 Q15.5 1.6 15.28 2.16 Z M12.65 3.61 L6.55 10.07 L5.68 9.12 Z"/>
 </svg>

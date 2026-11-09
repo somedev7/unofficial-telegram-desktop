@@ -1,8 +1,16 @@
 diff --git a/Telegram/SourceFiles/platform/linux/specific_linux.cpp b/Telegram/SourceFiles/platform/linux/specific_linux.cpp
-index 0e6214ddf..9ed5e3db7 100644
+index 0e6214ddf..88811f75b 100644
 --- a/Telegram/SourceFiles/platform/linux/specific_linux.cpp
 +++ b/Telegram/SourceFiles/platform/linux/specific_linux.cpp
-@@ -469,9 +469,9 @@ void InstallLauncher() {
+@@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include <sys/un.h>
+ #include <cstdlib>
+ #include <unistd.h>
++#include <utime.h>
+ #include <dirent.h>
+ #include <pwd.h>
+ 
+@@ -469,9 +470,9 @@ void InstallLauncher() {
  	static const auto DisabledByEnv = !qEnvironmentVariableIsEmpty(
  		"DESKTOPINTEGRATION");
  
@@ -14,7 +22,19 @@ index 0e6214ddf..9ed5e3db7 100644
  			|| KSandbox::isInside()
  			|| DisabledByEnv) {
  		return;
-@@ -696,7 +696,8 @@ bool SkipTaskbarSupported() {
+@@ -515,6 +516,11 @@ void InstallLauncher() {
+ 				+ u"-symbolic.svg"_q);
+ 	}
+ 
++	// Fork: GTK (Cinnamon, GNOME Shell) rescans an icon theme only when the
++	// mtime of its base folder changes, so without this a freshly installed
++	// icon shows up only after a relogin.
++	utime(QFile::encodeName(icons + u"hicolor"_q).constData(), nullptr);
++
+ 	QProcess::execute("update-desktop-database", {
+ 		applicationsPath
+ 	});
+@@ -696,7 +702,8 @@ bool SkipTaskbarSupported() {
  }
  
  QString ExecutablePathForShortcuts() {
