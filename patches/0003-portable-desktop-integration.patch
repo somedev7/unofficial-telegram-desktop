@@ -1,5 +1,5 @@
 diff --git a/Telegram/SourceFiles/platform/linux/specific_linux.cpp b/Telegram/SourceFiles/platform/linux/specific_linux.cpp
-index 0e6214ddf..88811f75b 100644
+index 0e6214ddf..daf37679b 100644
 --- a/Telegram/SourceFiles/platform/linux/specific_linux.cpp
 +++ b/Telegram/SourceFiles/platform/linux/specific_linux.cpp
 @@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -22,8 +22,25 @@ index 0e6214ddf..88811f75b 100644
  			|| KSandbox::isInside()
  			|| DisabledByEnv) {
  		return;
-@@ -515,6 +516,11 @@ void InstallLauncher() {
- 				+ u"-symbolic.svg"_q);
+@@ -506,15 +507,24 @@ void InstallLauncher() {
+ 	};
+ 
+ 	for (const auto &icon : monochromeIcons) {
++		const auto path = symbolicIcons
++			+ ApplicationIconName()
++			+ (!icon.isEmpty() ? u"-"_q + icon : QString())
++			+ u"-symbolic.svg"_q;
++		// Fork: QFile::copy() never overwrites, so a tray glyph changed in
++		// a newer build would stay the old one after an update.
++		QFile::remove(path);
+ 		QFile::copy(
+ 			u":/gui/icons/tray/monochrome%1.svg"_q.arg(
+ 				!icon.isEmpty() ? u"_"_q + icon : QString()),
+-			symbolicIcons
+-				+ ApplicationIconName()
+-				+ (!icon.isEmpty() ? u"-"_q + icon : QString())
+-				+ u"-symbolic.svg"_q);
++			path);
  	}
  
 +	// Fork: GTK (Cinnamon, GNOME Shell) rescans an icon theme only when the
@@ -34,7 +51,7 @@ index 0e6214ddf..88811f75b 100644
  	QProcess::execute("update-desktop-database", {
  		applicationsPath
  	});
-@@ -696,7 +702,8 @@ bool SkipTaskbarSupported() {
+@@ -696,7 +706,8 @@ bool SkipTaskbarSupported() {
  }
  
  QString ExecutablePathForShortcuts() {
