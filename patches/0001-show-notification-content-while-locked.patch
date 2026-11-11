@@ -1,24 +1,29 @@
 diff --git a/Telegram/SourceFiles/window/notifications_manager.cpp b/Telegram/SourceFiles/window/notifications_manager.cpp
-index 9aac369dc..cc9e71b1c 100644
+index 9aac369dc..9377c91f1 100644
 --- a/Telegram/SourceFiles/window/notifications_manager.cpp
 +++ b/Telegram/SourceFiles/window/notifications_manager.cpp
-@@ -1190,8 +1190,11 @@ void System::playSound(
+@@ -1190,18 +1190,20 @@ void System::playSound(
  Manager::DisplayOptions Manager::getNotificationOptions(
  		HistoryItem *item,
  		Data::ItemNotificationType type) const {
 -	const auto hideEverything = Core::App().passcodeLocked()
 -		|| forceHideDetails();
-+	// Fork: the passcode lock no longer hides sender and text, the
++	// Fork: neither the passcode lock nor a locked screen (forceHideDetails,
++	// on Linux reported by the XDG portal) hides sender and text, the
 +	// "Settings > Notifications > Show" choice still applies. Actions
-+	// (reply, mark as read) stay hidden while the app is locked.
-+	const auto locked = Core::App().passcodeLocked();
-+	const auto hideEverything = forceHideDetails();
++	// (reply, mark as read) stay hidden while either lock is on.
++	const auto locked = Core::App().passcodeLocked() || forceHideDetails();
  	const auto view = Core::App().settings().notifyView();
  	const auto peer = item ? item->history()->peer.get() : nullptr;
  	const auto topic = item ? item->topic() : nullptr;
-@@ -1202,6 +1205,7 @@ Manager::DisplayOptions Manager::getNotificationOptions(
- 	result.hideMessageText = hideEverything
- 		|| (view > Core::Settings::NotifyView::ShowPreview);
+ 
+ 	auto result = DisplayOptions();
+-	result.hideNameAndPhoto = hideEverything
+-		|| (view > Core::Settings::NotifyView::ShowName);
+-	result.hideMessageText = hideEverything
+-		|| (view > Core::Settings::NotifyView::ShowPreview);
++	result.hideNameAndPhoto = (view > Core::Settings::NotifyView::ShowName);
++	result.hideMessageText = (view > Core::Settings::NotifyView::ShowPreview);
  	result.hideMarkAsRead = result.hideMessageText
 +		|| locked
  		|| (type != Data::ItemNotificationType::Message)

@@ -12,13 +12,14 @@ Not affiliated with Telegram. The app uses the Telegram API.
 
 ## What is different from the official app
 
-- **Notification content while the app is locked with a passcode**
-  ([0001](patches/0001-show-notification-content-while-passcode-locked.patch)).
+- **Notification content while the app or the screen is locked**
+  ([0001](patches/0001-show-notification-content-while-locked.patch)).
   Upstream replaces sender, chat and text with "You have a new message"
-  while the local passcode lock is active. Here the
-  *Settings > Notifications > Show* choice applies in that state too.
+  while the local passcode lock is active, and also while the desktop
+  screen is locked (on Linux the XDG desktop portal reports it). Here the
+  *Settings > Notifications > Show* choice applies in both states.
   The app itself still can't be opened without the passcode, and the
-  reply / mark-as-read buttons stay hidden while it is locked.
+  reply / mark-as-read buttons stay hidden while either lock is on.
 - **Your own api_id / api_hash, set at runtime**
   ([0002](patches/0002-read-api-credentials-at-runtime.patch)).
   No credentials are built in. They are taken from the
